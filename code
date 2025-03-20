@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Maker</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      text-align: center; 
+      background: #ffffff; 
+      padding: 20px; 
+    }
+    h1 { 
+      font-size: 50px; 
+      margin-bottom: 10px; 
+      font-family: 'VT323', monospace;
+      color: #8A2BE2;
+    }
+    canvas { 
+      border: 1px solid black; 
+      display: block; 
+      margin: 10px auto;
+      max-width: 90vw;
+      max-height: 70vh;
+    }
+    input { 
+      margin: 10px; 
+    }
+  </style>
+</head>
+<body>
+  <h1>Pixel Maker</h1>
+  
+  <input type="file" id="upload" accept="image/*" />
+  <br />
+  
+  <label>Pixel Size:</label>
+  <input type="range" id="pixelSize" min="2" max="50" value="10" />
+  <span id="pixelValue">10</span> px
+  <br />
+  
+  <label>Color Percentage:</label>
+  <input type="range" id="colorPercentage" min="0" max="100" value="50" />
+  <span id="colorValue">50</span>%
+  <br />
+  
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const uploadInput = document.getElementById("upload");
+    const pixelSizeInput = document.getElementById("pixelSize");
+    const colorPercentageInput = document.getElementById("colorPercentage");
+    const pixelValueDisplay = document.getElementById("pixelValue");
+    const colorValueDisplay = document.getElementById("colorValue");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let img = new Image();
+    let originalImageData = null;
+
+    // Load and process the image when uploaded
+    uploadInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Ensure the image loads before processing
+    img.onload = function () {
+      console.log("Image loaded successfully!");
+      fitImageToCanvas(img);
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      pixelateImage();
+    };
+
+    // Scale the image to fit within the canvas while maintaining aspect ratio
+    function fitImageToCanvas(image) {
+      const maxWidth = window.innerWidth * 0.9;
+      const maxHeight = window.innerHeight * 0.7;
+      let scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+      let newWidth = image.width * scale;
+      let newHeight = image.height * scale;
+
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      console.log(`Resizing to: ${canvas.width}x${canvas.height}`);
+      ctx.drawImage(image, 0, 0, newWidth, newHeight);
+    }
+
+    // Apply pixelation effect
+    function pixelateImage() {
+      if (!originalImageData) return;
+
+      ctx.putImageData(originalImageData, 0, 0);
+
+      const pixelSize = parseInt(pixelSizeInput.value);
+      const colorPercentage = parseInt(colorPercentageInput.value) / 100;
+      pixelValueDisplay.textContent = pixelSize;
+      colorValueDisplay.textContent = Math.round(colorPercentage * 100);
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < height; y += pixelSize) {
+        for (let x = 0; x < width; x += pixelSize) {
+          let totalR = 0, totalG = 0, totalB = 0, count = 0;
+
+          for (let yy = 0; yy < pixelSize; yy++) {
+            for (let xx = 0; xx < pixelSize; xx++) {
+              let index = ((y + yy) * width + (x + xx)) * 4;
+              if (index < data.length) {
+                totalR += data[index];
+                totalG += data[index + 1];
+                totalB += data[index + 2];
+                count++;
+              }
+            }
+          }
+
+          let avgR = totalR / count;
+          let avgG = totalG / count;
+          let avgB = totalB / count;
+          let avgGray = (avgR + avgG + avgB) / 3;
+
+          let isColor = Math.random() < colorPercentage;
+
+          ctx.fillStyle = isColor 
+            ? `rgb(${avgR}, ${avgG}, ${avgB})`
+            : `rgb(${avgGray}, ${avgGray}, ${avgGray})`;
+
+          ctx.beginPath();
+          ctx.arc(x + pixelSize / 2, y + pixelSize / 2, pixelSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Update pixelation effect when sliders are moved
+    pixelSizeInput.addEventListener("input", pixelateImage);
+    colorPercentageInput.addEventListener("input", pixelateImage);
+
+    // Adjust canvas size and update image on window resize
+    window.addEventListener("resize", () => {
+      if (img.src) {
+        fitImageToCanvas(img);
+        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        pixelateImage();
+      }
+    });
+  </script>
+</body>
+</html>
